@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Scanner Festa Biometec</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: Arial, sans-serif; background: #111; color: #fff;
+      display: flex; flex-direction: column; align-items: center; min-height: 100vh;
+    }
+    h1 { font-size: 20px; margin: 16px 0 8px; }
+    #reader { width: 100%; max-width: 480px; }
+    #stato { color: #aaa; font-size: 14px; margin: 8px 16px; text-align: center; }
+    #avvia { display: none; margin: 16px; }
+    button {
+      padding: 14px 22px; font-size: 18px; font-weight: bold; border: none;
+      border-radius: 8px; background: #2196f3; color: #fff;
+    }
+    #esito {
+      display: none; position: fixed; inset: 0; padding: 24px;
+      flex-direction: column; justify-content: center; align-items: center; text-align: center;
+    }
+    #esito .msg { font-size: 34px; font-weight: bold; margin-bottom: 20px; }
+    #esito .user { font-size: 26px; font-weight: bold; margin-bottom: 16px; }
+    #esito .detail { font-size: 18px; margin-bottom: 32px; }
+    #esito button { background: rgba(0,0,0,0.35); font-size: 22px; padding: 18px 36px; }
+  </style>
+</head>
+<body>
+  <h1>🎟️ Scanner Festa Biometec</h1>
+  <div id="stato">Avvio fotocamera…</div>
+  <button id="avvia" onclick="avviaFotocamera()">📷 Attiva fotocamera</button>
+  <div id="reader"></div>
+
+  <div id="esito">
+    <div class="msg" id="eMsg"></div>
+    <div class="user" id="eUser"></div>
+    <div class="detail" id="eDetail"></div>
+    <button onclick="prossimo()">PROSSIMO ▶</button>
+  </div>
+
+  <script>
+    // ⬇️ INCOLLA QUI L'URL DELLA TUA WEB APP (quello che finisce con /exec)
+    const URL_WEBAPP = "https://script.google.com/macros/s/AKfycbyfWggsgf4U3OjvLp9VWjwpyGKxScj5cd2LrThnAOKM-BQsLwljjGPpuS33lm0N9bL-/exec";
+
+    let occupato = false;
+    let scanner = null;
+
+    function avviaFotocamera() {
+      document.getElementById("avvia").style.display = "none";
+      document.getElementById("stato").textContent = "Avvio fotocamera…";
+      if (!scanner) scanner = new Html5Qrcode("reader");
+
+      scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        testo => verifica(testo),
+        () => {}
+      ).then(() => {
+        document.getElementById("stato").textContent = "Inquadra il QR";
+      }).catch(err => {
+        document.getElementById("stato").textContent =
+          "Fotocamera bloccata. Tocca il pulsante e poi \"Consenti\". (" + err + ")";
+        document.getElementById("avvia").style.display = "block";
+      });
+    }
+
+    function verifica(testo) {
+      testo = (testo || "").trim();
+      if (occupato || !testo) return;
+      occupato = true;
+      try { scanner.pause(true); } catch (e) {}
+      document.getElementById("stato").textContent = "Verifica in corso…";
+
+      fetch(URL_WEBAPP + "?codice=" + encodeURIComponent(testo))
+        .then(r => r.json())
+        .then(mostra)
+        .catch(err => mostra({
+          success: false, msg: "ERRORE DI RETE", user: "",
+          detail: "Controlla la connessione e riprova. (" + err + ")", color: "#9e9e9e"
+        }));
+    }
+
+    function mostra(r) {
+      const box = document.getElementById("esito");
+      box.style.background = r.color;
+      document.getElementById("eMsg").textContent = r.msg;
+      document.getElementById("eUser").textContent = r.user;
+      document.getElementById("eDetail").textContent = r.detail;
+      box.style.display = "flex";
+      if (navigator.vibrate) navigator.vibrate(r.success ? 150 : [100, 80, 100, 80, 300]);
+    }
+
+    function prossimo() {
+      document.getElementById("esito").style.display = "none";
+      document.getElementById("stato").textContent = "Inquadra il QR";
+      occupato = false;
+      try { scanner.resume(); } catch (e) {}
+    }
+
+    avviaFotocamera();
+  </script>
+</body>
+</html>
